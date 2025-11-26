@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Magalhães Negócios</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -172,6 +173,19 @@
             color: white;
         }
 
+        .btn-share {
+            background: #25D366;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-share:hover {
+            background: #128C7E;
+            transform: translateY(-2px);
+        }
+
         .result-box {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             padding: 30px;
@@ -192,6 +206,14 @@
             font-weight: bold;
             color: #667eea;
             margin-bottom: 20px;
+        }
+
+        .share-section {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
         }
 
         .imoveis-grid {
@@ -430,6 +452,96 @@
             font-size: 14px;
         }
 
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 5px 10px;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .url-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            word-break: break-all;
+            font-size: 14px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .qrcode-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .share-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             .container {
@@ -455,6 +567,15 @@
             .stats-bar {
                 flex-direction: column;
             }
+
+            .share-options {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
         }
 
         @media (min-width: 769px) and (max-width: 1024px) {
@@ -467,7 +588,7 @@
 <body>
     <div class="container">
         <h1>🏠 SISTEMA MAGALHÃES NEGÓCIOS</h1>
-        <span class="version-badge">v1.3.5 - Match Inteligente com Resumo Completo</span>
+        <span class="version-badge">v1.6 - URL Compartilhável</span>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('qualificacao')">1️⃣ Qualificação Cliente</button>
@@ -641,12 +762,48 @@
         </div>
     </div>
 
+    <!-- MODAL COMPARTILHAR -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="fecharModal()">&times;</button>
+            <h2 class="modal-title">📤 Compartilhar Simulação</h2>
+            
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                Compartilhe este link com seu cliente. Ao abrir, a simulação já estará pronta!
+            </p>
+
+            <div class="url-box" id="shareUrlBox">
+                <!-- URL será gerada aqui -->
+            </div>
+
+            <div style="text-align: center; margin: 20px 0;">
+                <button class="btn btn-primary" onclick="copiarUrl()">📋 Copiar Link</button>
+            </div>
+
+            <div class="qrcode-container">
+                <h3 style="color: #667eea; margin-bottom: 15px;">QR Code</h3>
+                <div id="qrcodeDiv" style="display: flex; justify-content: center;"></div>
+                <p style="color: #666; font-size: 12px; margin-top: 10px;">Cliente pode escanear com a câmera do celular</p>
+            </div>
+
+            <div class="share-options">
+                <button class="btn btn-share" onclick="compartilharWhatsApp()">
+                    📱 WhatsApp
+                </button>
+                <button class="btn btn-primary" onclick="compartilharEmail()">
+                    📧 Email
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // DADOS GLOBAIS
         let capacidadeCliente = 0;
         let todosImoveis = [];
         let imoveisFiltrados = [];
         let dadosSimulacao = null;
+        let urlCompartilhavel = '';
 
         // CONFIGURAÇÕES (podem ser ajustadas pelo usuário)
         let config = {
@@ -715,6 +872,40 @@
             {id: 28, construtora: "VASCO", nome: "Jardim das Acácias", valor: 208000, cidade: "Gravataí", bairro: "Morada do Vale", tipo: "Casa", quartos: 2, area: 67, status: "Lançamento", link: "https://construtoravasco.com.br/imoveis", obs: "MCMV | Lançamento | Casas térreas"},
             {id: 29, construtora: "TENDA", nome: "Residencial Novo Hamburgo", valor: 182000, cidade: "Novo Hamburgo", bairro: "Centro", tipo: "Apartamento", quartos: 2, area: 49, status: "Disponível", link: "https://tenda.com/apartamentos-a-venda/rs/novo-hamburgo", obs: "MCMV | Facilidade transporte"}
         ];
+
+        // LER PARÂMETROS DA URL AO CARREGAR
+        window.onload = function() {
+            // Carregar configurações salvas
+            if (localStorage.getItem('config')) {
+                const savedConfig = JSON.parse(localStorage.getItem('config'));
+                config = savedConfig;
+                
+                document.getElementById('configTendaAto').value = config.tenda.ato_minimo;
+                document.getElementById('configMrvIncc').value = config.mrv.incc_mensal;
+                document.getElementById('configLimiteRecomendado').value = config.match.limite_recomendado;
+                document.getElementById('configLimitePossivel').value = config.match.limite_possivel;
+            }
+
+            // Verificar se tem parâmetros na URL
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.has('nome')) {
+                // Auto-preencher formulário
+                document.getElementById('nomeCliente').value = urlParams.get('nome') || '';
+                document.getElementById('renda').value = urlParams.get('renda') || '';
+                document.getElementById('vinculo').value = urlParams.get('vinculo') || 'clt';
+                document.getElementById('avaliacao').value = urlParams.get('avaliacao') || '244000';
+                document.getElementById('fgts').value = urlParams.get('fgts') || '0';
+                document.getElementById('fatorSocial').value = urlParams.get('fatorSocial') || 'nao';
+                
+                updateAvaliacao();
+                
+                // Auto-calcular após um pequeno delay
+                setTimeout(() => {
+                    calcular();
+                }, 500);
+            }
+        };
 
         function showTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -827,12 +1018,14 @@
             dadosSimulacao = {
                 nome,
                 renda,
+                vinculo,
                 avaliacao,
+                fgts,
+                fatorSocial: fatorSocial ? 'sim' : 'nao',
                 faixa: faixa === 1 ? 'Faixa 1' : 'Faixa 2',
                 valorFinanciado,
                 subsidio,
                 entrada,
-                fgts,
                 parcela: parcelaMaxima,
                 taxa
             };
@@ -870,12 +1063,111 @@
                             <div style="color: #667eea; font-size: 20px; font-weight: bold;">${formatarMoeda(dadosSimulacao.parcela)}</div>
                         </div>
                     </div>
+                    <div class="share-section">
+                        <button class="btn btn-share" onclick="abrirModalCompartilhar()">
+                            📤 Compartilhar Simulação com Cliente
+                        </button>
+                        <p style="color: #666; font-size: 12px; margin-top: 10px;">
+                            Gere um link para o cliente ver os imóveis compatíveis
+                        </p>
+                    </div>
                 </div>
             `;
             
             const div = document.getElementById('resultados');
             div.innerHTML = html;
             div.style.display = 'block';
+        }
+
+        function gerarUrlCompartilhavel() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const params = new URLSearchParams({
+                nome: dadosSimulacao.nome,
+                renda: dadosSimulacao.renda,
+                vinculo: dadosSimulacao.vinculo,
+                avaliacao: dadosSimulacao.avaliacao,
+                fgts: dadosSimulacao.fgts,
+                fatorSocial: dadosSimulacao.fatorSocial
+            });
+            
+            return `${baseUrl}?${params.toString()}`;
+        }
+
+        function abrirModalCompartilhar() {
+            urlCompartilhavel = gerarUrlCompartilhavel();
+            
+            // Mostrar URL
+            document.getElementById('shareUrlBox').textContent = urlCompartilhavel;
+            
+            // Gerar QR Code
+            document.getElementById('qrcodeDiv').innerHTML = '';
+            new QRCode(document.getElementById('qrcodeDiv'), {
+                text: urlCompartilhavel,
+                width: 200,
+                height: 200
+            });
+            
+            // Abrir modal
+            document.getElementById('shareModal').classList.add('active');
+        }
+
+        function fecharModal() {
+            document.getElementById('shareModal').classList.remove('active');
+        }
+
+        function copiarUrl() {
+            navigator.clipboard.writeText(urlCompartilhavel).then(() => {
+                alert('✅ Link copiado!\n\nAgora é só colar e enviar para o cliente!');
+            }).catch(() => {
+                // Fallback para navegadores antigos
+                const textArea = document.createElement('textarea');
+                textArea.value = urlCompartilhavel;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ Link copiado!');
+            });
+        }
+
+        function compartilharWhatsApp() {
+            const mensagem = `Olá ${dadosSimulacao.nome}! 👋
+
+Preparei sua simulação de financiamento MCMV! 🏠
+
+Acesse o link abaixo para ver os imóveis disponíveis na sua faixa de preço:
+
+${urlCompartilhavel}
+
+Qualquer dúvida, estou à disposição! 😊`;
+            
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        function compartilharEmail() {
+            const assunto = `Simulação MCMV - ${dadosSimulacao.nome}`;
+            const corpo = `Olá ${dadosSimulacao.nome}!
+
+Preparei sua simulação de financiamento MCMV.
+
+Acesse o link abaixo para ver os imóveis disponíveis:
+
+${urlCompartilhavel}
+
+Resumo da sua simulação:
+- Capacidade de compra: ${formatarMoeda(dadosSimulacao.avaliacao)}
+- Valor financiado: ${formatarMoeda(dadosSimulacao.valorFinanciado)}
+- Subsídio MCMV: ${formatarMoeda(dadosSimulacao.subsidio)}
+- Parcela mensal: ${formatarMoeda(dadosSimulacao.parcela)}
+
+Qualquer dúvida, estou à disposição!
+
+Atenciosamente,
+Magalhães Negócios`;
+            
+            const mailtoUrl = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+            window.location.href = mailtoUrl;
         }
 
         function carregarImoveis() {
@@ -1284,18 +1576,13 @@ Quer agendar uma visita? 🗓️`;
             document.getElementById('statNaoRecomendado').textContent = naoRecomendado;
         }
 
-        // Carregar configurações salvas do localStorage (se existirem)
-        window.onload = function() {
-            if (localStorage.getItem('config')) {
-                const savedConfig = JSON.parse(localStorage.getItem('config'));
-                config = savedConfig;
-                
-                document.getElementById('configTendaAto').value = config.tenda.ato_minimo;
-                document.getElementById('configMrvIncc').value = config.mrv.incc_mensal;
-                document.getElementById('configLimiteRecomendado').value = config.match.limite_recomendado;
-                document.getElementById('configLimitePossivel').value = config.match.limite_possivel;
+        // Fechar modal ao clicar fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('shareModal');
+            if (event.target === modal) {
+                fecharModal();
             }
-        };
+        }
     </script>
 </body>
 </html>
